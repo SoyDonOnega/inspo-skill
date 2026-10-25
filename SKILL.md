@@ -58,7 +58,7 @@ Run independent searches in parallel. Record each kept item with a URL.
 5. **Projects / products** — web search: Show HN, Product Hunt free tiers, "open source alternative to …", official docs of stacks the user already uses.
 6. **Optional extras** only if they add context — GitLab/Codeberg, technical blogs with working examples. Skip low-signal Medium/listicle spam.
 
-Also check José's Obsidian vault for prior art he already filed — `Developer/Projects.md`, `Developer/Tools.md` (watchlist) and `Academic/Bookmarks/AI/` — and cite as `vault:` paths when useful.
+Also check the user's own notes (e.g. an Obsidian vault: project list, tool watchlist, bookmarks) for prior art they already filed, and cite as `vault:` paths when useful.
 
 ## Inclusion rules
 
