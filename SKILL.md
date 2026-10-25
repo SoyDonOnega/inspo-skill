@@ -5,8 +5,8 @@ description: >-
   user wants to build or do, and explains why and how each one helps. Does not implement
   the idea. Use when the user runs /inspo <what they want to do>.
 license: MIT
-compatibility: Requires the gh CLI (authenticated) and network access. X search uses an xAI API key when available.
-argument-hint: "<what you want to build or do>"
+compatibility: Requires the gh CLI (authenticated) and network access. X search runs through the xAI API (paid, key required) or a browser signed in to X (free).
+argument-hint: "[--x api|browser] <what you want to build or do>"
 disable-model-invocation: true
 ---
 
@@ -45,11 +45,14 @@ Run independent searches in parallel. Record each kept item with a URL.
    - For the promising ones: `gh api repos/<owner>/<repo>/readme --jq .content | base64 -d | head -80`.
    - `gh search code "<terms>"` only when the useful thing is a pattern inside repos.
    - Prefer: clear README, pushed in the last 12 months, a license, matching problem shape. Stars are a weak signal only.
-2. **X posts** (always) — try in this order and say in Sources which one ran:
-   1. `python3 scripts/x_search.py "<what the user wants to do>" [--from YYYY-MM-DD] [--handles a,b]`. It calls the xAI API's `x_search` tool and returns post URLs. Cost: billed by xAI, not by the agent's own model provider. Exit 2 means no key: go to the next option.
-   2. Browser on `https://x.com/search?q=<terms>&f=top` if a browser tool is available and the user is signed in. Read only: never like, post or follow.
-   3. Web search with `site:x.com <terms>`. Weak coverage: say so in Gaps.
-   Keep posts with demos, linked repos or credible practitioners; open the post URL before keeping it when the browser is available.
+2. **X posts** (always) — two routes; the user picks one. Say in Sources which one ran.
+   - **Pick the route:** `--x api` or `--x browser` at the start of the input forces one. Otherwise: an xAI key is set → `api`; no key → `browser`. If the chosen route fails, fall to the next one in this list and say so in Gaps.
+   1. **`api`** (paid, fastest) — `python3 scripts/x_search.py "<what the user wants to do>" [--from YYYY-MM-DD] [--handles a,b]`. It calls the xAI API's `x_search` tool and returns post URLs. Cost: billed by xAI, not by the agent's own model provider. Exit 2 = no key, exit 3 = API error.
+   2. **`browser`** (free) — open `https://x.com/search?q=<terms>&f=top` (`&f=live` for recent posts; X operators such as `since:`, `from:`, `min_faves:` work in `q`). Prefer a browser the agent owns (e.g. the Claude desktop app's built-in browser) over the user's own browser; use the user's browser only when no agent browser exists. Read page text, not screenshots. Read only: never like, post, follow or reply.
+      - Not signed in → stop and ask the user to sign in to X in that browser once. Never type credentials.
+   3. **`web`** (free, no login, last resort) — web search `site:x.com <terms>`. Weak coverage: say so in Gaps.
+   - **Check each post before keeping it** (all routes): `curl -s https://api.fxtwitter.com/<handle>/status/<id>` returns the post as JSON (`.tweet.text`, `.tweet.author.screen_name`, `.tweet.likes`) — free, no account. Drop posts it cannot return.
+   Keep posts with demos, linked repos or credible practitioners.
 3. **Awesome lists / curated indexes** — `awesome-<topic>`, topic hubs (`gh search repos "awesome <topic>"`).
 4. **Package ecosystems** when relevant — npm, PyPI, crates, Hugging Face (libraries/models as solutions, not only apps).
 5. **Projects / products** — web search: Show HN, Product Hunt free tiers, "open source alternative to …", official docs of stacks the user already uses.
