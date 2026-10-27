@@ -76,23 +76,62 @@ def screen_name(tweet):
     return user.get("core", {}).get("screen_name") or user.get("legacy", {}).get("screen_name")
 
 
+def unwrap(result):
+    """Posts with visibility limits come wrapped as {"__typename": "TweetWithVisibilityResults", "tweet": {...}}."""
+    return result.get("tweet", result) if result.get("__typename") == "TweetWithVisibilityResults" else result
+
+
+def post_text(tweet):
+    """Full text without the t.co links that only point to the quoted post or the post's own article."""
+    legacy = tweet["legacy"]
+    note = tweet.get("note_tweet", {}).get("note_tweet_results", {}).get("result", {})
+    text = note.get("text") or legacy["full_text"]
+    drop = {legacy.get("quoted_status_permalink", {}).get("url")}
+    drop |= {u["url"] for u in legacy.get("entities", {}).get("urls", []) if "/i/article/" in u.get("expanded_url", "")}
+    for url in drop - {None}:
+        text = text.replace(url, "")
+    return html.unescape(text).strip()
+
+
+def article(tweet):
+    a = tweet.get("article", {}).get("article_results", {}).get("result", {})
+    if not a.get("title"):
+        return None
+    return {"url": f"https://x.com/i/article/{a.get('rest_id')}", "title": a["title"], "preview": a.get("preview_text")}
+
+
+def quoted(tweet):
+    q = unwrap(tweet.get("quoted_status_result", {}).get("result", {}))
+    if "legacy" not in q:
+        return None
+    handle = screen_name(q) or "i"
+    out = {"url": f"https://x.com/{handle}/status/{q['rest_id']}", "handle": handle, "text": post_text(q)}
+    if art := article(q):
+        out["article"] = art
+    return out
+
+
 def to_post(tweet):
     legacy = tweet["legacy"]
     handle = screen_name(tweet) or "i"
-    note = tweet.get("note_tweet", {}).get("note_tweet_results", {}).get("result", {})
     try:
         date = datetime.strptime(legacy["created_at"], "%a %b %d %H:%M:%S %z %Y").date().isoformat()
     except (KeyError, ValueError):
         date = None
-    return {
+    post = {
         "url": f"https://x.com/{handle}/status/{tweet['rest_id']}",
         "handle": handle,
         "date": date,
-        "text": html.unescape(note.get("text") or legacy["full_text"]),
+        "text": post_text(tweet),
         "likes": legacy.get("favorite_count"),
         "reposts": legacy.get("retweet_count"),
         "links": [u["expanded_url"] for u in legacy.get("entities", {}).get("urls", []) if u.get("expanded_url")],
     }
+    if art := article(tweet):
+        post["article"] = art
+    if q := quoted(tweet):
+        post["quoted"] = q
+    return post
 
 
 def dom_posts(page):
