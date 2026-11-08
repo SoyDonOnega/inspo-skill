@@ -10,7 +10,8 @@ page's post cards as a fallback. Read only: it scrolls, never clicks, likes or p
 
 Prints JSON: {"query": ..., "source": "network"|"dom", "posts": [...]}.
 Session: a browser profile at $INSPO_X_PROFILE (default ~/.inspo/x-profile).
-Exit 2 = not signed in (run --login), exit 3 = blocked or page changed (the skill then falls back).
+Exit 2 = not signed in (run --login), exit 3 = blocked, page changed or profile in use
+by another Chrome (the skill then falls back).
 
 Usage:
     uv run x_browse.py --login
@@ -262,7 +263,15 @@ def main():
         p.error("a query is required unless --login")
 
     with sync_playwright() as pw:
-        return login(pw, args) if args.login else search(pw, args)
+        try:
+            return login(pw, args) if args.login else search(pw, args)
+        except PlaywrightError as e:
+            # Chrome refuses a profile another Chrome still holds (e.g. the login window closed but not quit).
+            if "ProcessSingleton" not in str(e):
+                raise
+            print(json.dumps({"error": f"X profile {PROFILE} is in use by another Chrome; quit it (Cmd+Q) and retry",
+                              "profile_in_use": True}))
+            return 3
 
 
 if __name__ == "__main__":
